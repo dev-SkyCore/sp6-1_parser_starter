@@ -3,7 +3,7 @@
 function parsePage() {
   const opengraph = {};
   document.querySelectorAll('html meta[property^="og:"]').forEach(el => {
-    opengraph[el.getAttribute('property').split(':')[1]] = el.getAttribute('content');
+    opengraph[el.getAttribute('property').split(':')[1]] = el.getAttribute('content').split('—')[0].trim();
   })
 
   const images = [];
@@ -43,20 +43,77 @@ function parsePage() {
     discountPercent = (discount * 100 / oldPrice).toFixed(2) + '%';
   }
 
-  let currency = 'RUB';
-  const currencySymbol  = document.querySelector('.product .price').textContent.split('\n')[1].trim().slice(0, 1);
+  function getCurrencySymbol(currencySymbol) {
+    let currency = 'RUB';
 
-  if (currencySymbol === '$') {
-    currency = 'USD';
-  } else if (currencySymbol === '€') {
-    currency = 'EUR';
+    if (currencySymbol === '$') {
+      currency = 'USD';
+    } else if (currencySymbol === '€') {
+      currency = 'EUR';
+    }
+
+    return currency;
   }
+
+
+  const properties = {};
+
+  document.querySelectorAll('.properties li').forEach(el => {
+    const [key, value] = el.querySelectorAll('span');
+    properties[key.textContent] = value.textContent;
+  })
+
+  const suggested = [];
+
+  document.querySelectorAll('.suggested article').forEach(el => {
+    const cardProduct = {
+      name: el.querySelector('h3').textContent,
+      description: el.querySelector('p').textContent,
+      image: el.querySelector('img').getAttribute('src'),
+      price: el.querySelector('b').textContent.slice(1),
+      currency: getCurrencySymbol(el.querySelector('b').textContent.slice(0, 1)),
+    }
+    suggested.push(cardProduct);
+  })
+
+  function getRating(data) {
+    let counter = 0;
+    data.forEach((el) => {
+      if (el.classList.contains('filled')) {
+        counter++;
+      }
+    });
+    return counter;
+  }
+
+  const reviews = [];
+
+  document.querySelectorAll('.reviews article').forEach(el => {
+    const review = {
+      rating: getRating(el.querySelectorAll('span')),
+      author: {
+        avatar: el.querySelector('img').getAttribute('src'),
+        name: el.querySelector('.author span').textContent,
+      },
+      title: el.querySelector('h3').textContent,
+      description: el.querySelector('p').textContent,
+      date: el.querySelector('i').textContent.split('/').join('.'),
+    }
+
+    reviews.push(review);
+  })
+
+  const descriptionElement = document.querySelector('.product .description');
+
+  descriptionElement.querySelector('h3').removeAttribute('class');
+
+  const description = descriptionElement.innerHTML.trim();
 
     return {
         meta: {
           title: document.querySelector('html head title').textContent.split('—')[0].trim(),
           language: document.querySelector('html').getAttribute('lang'),
-          keywords: document.querySelector('html meta[name="keywords"]').getAttribute('content').split(','),
+          keywords: document.querySelector('html meta[name="keywords"]').getAttribute('content').split(',').map(keyword => keyword.trim()),
           description: document.querySelector('html meta[name="description"]').getAttribute('content'),
           opengraph: opengraph,
         },
@@ -70,10 +127,12 @@ function parsePage() {
           oldPrice: oldPrice,
           discount: discount,
           discountPercent: discountPercent,
-          currency: currency,
+          currency: getCurrencySymbol(document.querySelector('.product .price').textContent.split('\n')[1].trim().slice(0, 1)),
+          properties: properties,
+          description: description,
         },
-        suggested: [],
-        reviews: []
+        suggested: suggested,
+        reviews: reviews
     };
 }
 
